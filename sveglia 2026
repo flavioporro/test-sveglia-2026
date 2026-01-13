@@ -159,11 +159,13 @@ trigger:
     at: !input ora_domenica
     id: domenica
 
+variables:
+  input_ultima_routine: !input ultima_routine
+
 condition:
-  - condition: template
+  - alias: "Verifica giorno e ultima esecuzione"
+    condition: template
     value_template: >
-      {% set entity_id = !input ultima_routine %}
-      {% set ultima = states(entity_id) %}
       {% set oggi_corretto = (
         (trigger.id == 'lunedi' and now().weekday() == 0) or
         (trigger.id == 'martedi' and now().weekday() == 1) or
@@ -175,11 +177,14 @@ condition:
       ) %}
       {% if not oggi_corretto %}
         false
-      {% elif ultima in ['unknown', 'unavailable', '', none] %}
-        true
       {% else %}
-        {% set ultima_dt = as_datetime(ultima) %}
-        {{ ultima_dt is none or ultima_dt.date() != now().date() }}
+        {% set ultima = states(input_ultima_routine) %}
+        {% if ultima in ['unknown', 'unavailable', '', none] %}
+          true
+        {% else %}
+          {% set ultima_dt = as_datetime(ultima) %}
+          {{ ultima_dt is none or ultima_dt.date() != now().date() }}
+        {% endif %}
       {% endif %}
 
 action:
