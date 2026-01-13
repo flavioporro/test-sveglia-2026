@@ -5,6 +5,7 @@ blueprint:
     Una sola esecuzione al giorno con timeout, affidabile anche dopo riavvii.
     Include gestione errori e log completi.
   domain: automation
+  source_url: https://github.com/flavioporro/sveglia-architetto/blob/main/sveglia_architetto.yaml
   input:
     ultima_routine:
       name: "🧠 Ultima esecuzione routine"
@@ -16,25 +17,32 @@ blueprint:
     # Orari settimanali
     ora_lunedi:
       name: "🗓️ Lunedì"
-      selector: { time: {} }
+      selector:
+        time: {}
     ora_martedi:
       name: "🗓️ Martedì"
-      selector: { time: {} }
+      selector:
+        time: {}
     ora_mercoledi:
       name: "🗓️ Mercoledì"
-      selector: { time: {} }
+      selector:
+        time: {}
     ora_giovedi:
       name: "🗓️ Giovedì"
-      selector: { time: {} }
+      selector:
+        time: {}
     ora_venerdi:
       name: "🗓️ Venerdì"
-      selector: { time: {} }
+      selector:
+        time: {}
     ora_sabato:
       name: "🗓️ Sabato"
-      selector: { time: {} }
+      selector:
+        time: {}
     ora_domenica:
       name: "🗓️ Domenica"
-      selector: { time: {} }
+      selector:
+        time: {}
 
     # Dispositivi coperture
     serrande_camere:
@@ -154,10 +162,7 @@ trigger:
 condition:
   - condition: template
     value_template: >
-      {# leggo lo stato dell'input datetime (instanziato dall'utente) #}
-      {% set ultima = states(!input ultima_routine) %}
-
-      {# Verifica che sia il giorno corretto #}
+      {% set ultima = states(ultima_routine) %}
       {% set oggi_corretto = (
         (trigger.id == 'lunedi' and now().weekday() == 0) or
         (trigger.id == 'martedi' and now().weekday() == 1) or
@@ -167,7 +172,6 @@ condition:
         (trigger.id == 'sabato' and now().weekday() == 5) or
         (trigger.id == 'domenica' and now().weekday() == 6)
       ) %}
-
       {% if not oggi_corretto %}
         false
       {% elif ultima in ['unknown', 'unavailable', '', none] %}
@@ -182,8 +186,7 @@ action:
   - action: logbook.log
     data:
       name: "Sveglia Architetto"
-      message: >-
-        🌅 Routine {{ trigger.id | title }} avviata alle {{ now().strftime('%H:%M') }}
+      message: "🌅 Routine {{ trigger.id | title }} avviata alle {{ now().strftime('%H:%M') }}"
 
   - action: input_datetime.set_datetime
     target:
@@ -203,8 +206,7 @@ action:
   - action: logbook.log
     data:
       name: "Sveglia Architetto"
-      message: >-
-        🪟 Serrande camere inviate al valore configurato ({{ (!input posizione_serrande_camere) | string }}%)
+      message: "🪟 Serrande camere aperte al {{ posizione_serrande_camere }}%"
 
   # ===== FASE 3: APERTURA BAGNO =====
   - action: cover.open_cover
@@ -215,15 +217,13 @@ action:
   - action: logbook.log
     data:
       name: "Sveglia Architetto"
-      message: >-
-        🚿 Serranda bagno aperta completamente
+      message: "🚿 Serranda bagno aperta completamente"
 
   # ===== FASE 4: ATTESA MOVIMENTO CON TIMEOUT =====
   - action: logbook.log
     data:
       name: "Sveglia Architetto"
-      message: >-
-        👀 In attesa di movimento (timeout: {{ (!input timeout_movimento) | string }} min)...
+      message: "👀 In attesa di movimento (timeout: {{ timeout_movimento }} min)..."
 
   - wait_for_trigger:
       - platform: state
@@ -237,20 +237,18 @@ action:
   - choose:
       - conditions:
           - condition: template
-            value_template: "{{ wait is not none }}"
+            value_template: "{{ wait.trigger != none }}"
         sequence:
           - action: logbook.log
             data:
               name: "Sveglia Architetto"
-              message: >-
-                ✅ Movimento rilevato alle {{ now().strftime('%H:%M') }}, proseguo con la routine
+              message: "✅ Movimento rilevato alle {{ now().strftime('%H:%M') }}, proseguo con la routine"
     default:
       - action: logbook.log
         data:
           name: "Sveglia Architetto"
-          message: >-
-            ⏱️ Timeout raggiunto ({{ (!input timeout_movimento) | string }} min), routine annullata
-      - stop
+          message: "⏱️ Timeout raggiunto ({{ timeout_movimento }} min), routine annullata"
+      - stop: "Nessun movimento rilevato entro {{ timeout_movimento }} minuti"
 
   # ===== FASE 5: ACCENSIONE LUCI =====
   - action: light.turn_on
@@ -261,8 +259,7 @@ action:
   - action: logbook.log
     data:
       name: "Sveglia Architetto"
-      message: >-
-        💡 Luci accese
+      message: "💡 Luci accese"
 
   # ===== FASE 6: APERTURA TAPPARELLE PIANO TERRA =====
   - delay:
@@ -271,8 +268,7 @@ action:
   - action: logbook.log
     data:
       name: "Sveglia Architetto"
-      message: >-
-        🏠 Invio comando apertura tapparelle piano terra...
+      message: "🏠 Invio comando apertura tapparelle piano terra..."
 
   - action: cover.set_cover_position
     target:
@@ -284,8 +280,7 @@ action:
   - action: logbook.log
     data:
       name: "Sveglia Architetto"
-      message: >-
-        ✅ Comando inviato alle tapparelle piano terra (100%)
+      message: "✅ Comando inviato alle tapparelle piano terra (100%)"
 
   # ===== FASE 7: CAFFÈ E PORTA =====
   - delay:
@@ -300,8 +295,7 @@ action:
   - action: logbook.log
     data:
       name: "Sveglia Architetto"
-      message: >-
-        ☕ Macchina del caffè attivata
+      message: "☕ Macchina del caffè attivata"
 
   # Sblocca porta solo se persona in casa
   - choose:
@@ -317,21 +311,18 @@ action:
           - action: logbook.log
             data:
               name: "Sveglia Architetto"
-              message: >-
-                🚪 Porta sbloccata (persona in casa)
+              message: "🚪 Porta sbloccata (persona in casa)"
     default:
       - action: logbook.log
         data:
           name: "Sveglia Architetto"
-          message: >-
-            🚪 Porta non sbloccata (persona non in casa)
+          message: "🚪 Porta non sbloccata (persona non in casa)"
 
   # ===== FASE 8: COMPLETAMENTO =====
   - action: logbook.log
     data:
       name: "Sveglia Architetto"
-      message: >-
-        ✨ Routine completata con successo
+      message: "✨ Routine completata con successo"
 
 mode: single
 max_exceeded: silent
