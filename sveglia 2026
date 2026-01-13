@@ -5,6 +5,7 @@ blueprint:
     Una sola esecuzione al giorno con timeout, affidabile anche dopo riavvii.
     Include gestione errori e log completi.
   domain: automation
+  source_url: https://github.com/flavioporro/sveglia-architetto/blob/main/sveglia_architetto.yaml
   input:
     ultima_routine:
       name: 🧠 Ultima esecuzione routine
@@ -16,31 +17,38 @@ blueprint:
     # Orari settimanali
     ora_lunedi:
       name: 🗓️ Lunedì
-      selector: { time: {} }
+      selector:
+        time: {}
     ora_martedi:
       name: 🗓️ Martedì
-      selector: { time: {} }
+      selector:
+        time: {}
     ora_mercoledi:
       name: 🗓️ Mercoledì
-      selector: { time: {} }
+      selector:
+        time: {}
     ora_giovedi:
       name: 🗓️ Giovedì
-      selector: { time: {} }
+      selector:
+        time: {}
     ora_venerdi:
       name: 🗓️ Venerdì
-      selector: { time: {} }
+      selector:
+        time: {}
     ora_sabato:
       name: 🗓️ Sabato
-      selector: { time: {} }
+      selector:
+        time: {}
     ora_domenica:
       name: 🗓️ Domenica
-      selector: { time: {} }
+      selector:
+        time: {}
     
     # Dispositivi coperture
     serrande_camere:
       name: 🪟 Serrande camere
       selector:
-        entity: 
+        entity:
           domain: cover
           multiple: true
     posizione_serrande_camere:
@@ -56,12 +64,12 @@ blueprint:
     serranda_bagno:
       name: 🚿 Serranda bagno
       selector:
-        entity: 
+        entity:
           domain: cover
     tapparelle_piano_terra:
       name: 🏠 Tapparelle piano terra
       selector:
-        entity: 
+        entity:
           domain: cover
           multiple: true
     
@@ -69,7 +77,7 @@ blueprint:
     sensore_movimento:
       name: 🚶 Sensore movimento
       selector:
-        entity: 
+        entity:
           domain: binary_sensor
     timeout_movimento:
       name: ⏱️ Timeout attesa movimento (minuti)
@@ -84,7 +92,7 @@ blueprint:
     luci_da_attivare:
       name: 💡 Luci da attivare
       selector:
-        entity: 
+        entity:
           domain: light
           multiple: true
     
@@ -114,21 +122,19 @@ blueprint:
     macchina_caffe:
       name: ☕ Macchina del caffè
       selector:
-        entity: 
+        entity:
           domain: switch
     persona:
       name: 👤 Persona
       description: Entità person per verifica presenza
       selector:
-        entity: 
+        entity:
           domain: person
     porta_ingresso:
       name: 🚪 Porta ingresso
       selector:
-        entity: 
+        entity:
           domain: lock
-    
-
 
 trigger:
   - platform: time
@@ -153,12 +159,15 @@ trigger:
     at: !input ora_domenica
     id: domenica
 
+variables:
+  input_ultima_routine: !input ultima_routine
+  input_posizione_serrande: !input posizione_serrande_camere
+  input_timeout: !input timeout_movimento
+
 condition:
   - condition: template
     value_template: >
-      {% set ultima = states(ultima_routine) %}
-      
-      {# Verifica che sia il giorno corretto #}
+      {% set ultima = states(input_ultima_routine) %}
       {% set oggi_corretto = (
         (trigger.id == 'lunedi' and now().weekday() == 0) or
         (trigger.id == 'martedi' and now().weekday() == 1) or
@@ -168,16 +177,12 @@ condition:
         (trigger.id == 'sabato' and now().weekday() == 5) or
         (trigger.id == 'domenica' and now().weekday() == 6)
       ) %}
-      
-      {# Se non è il giorno corretto, non eseguire #}
       {% if not oggi_corretto %}
         false
-      {# Se non c'è traccia dell'ultima esecuzione, esegui #}
       {% elif ultima in ['unknown', 'unavailable', ''] %}
         true
-      {# Altrimenti verifica che non sia già stata eseguita oggi #}
       {% else %}
-        {{ strptime(ultima, '%Y-%m-%d %H:%M:%S').date() != now().date() }}
+        {{ as_timestamp(ultima) | timestamp_custom('%Y-%m-%d') != now().strftime('%Y-%m-%d') }}
       {% endif %}
 
 action:
@@ -205,7 +210,7 @@ action:
   - action: logbook.log
     data:
       name: "Sveglia Architetto"
-      message: "🪟 Serrande camere aperte al {{ posizione_serrande_camere }}%"
+      message: "🪟 Serrande camere aperte al {{ input_posizione_serrande }}%"
   
   # ===== FASE 3: APERTURA BAGNO =====
   - action: cover.open_cover
@@ -222,7 +227,7 @@ action:
   - action: logbook.log
     data:
       name: "Sveglia Architetto"
-      message: "👀 In attesa di movimento (timeout: {{ timeout_movimento }} min)..."
+      message: "👀 In attesa di movimento (timeout: {{ input_timeout }} min)..."
   
   - wait_for_trigger:
       - platform: state
@@ -234,7 +239,6 @@ action:
   
   # Verifica se c'è stato movimento o timeout
   - choose:
-      # SE C'È STATO MOVIMENTO → Prosegui
       - conditions:
           - condition: template
             value_template: "{{ wait.trigger != none }}"
@@ -243,13 +247,12 @@ action:
             data:
               name: "Sveglia Architetto"
               message: "✅ Movimento rilevato alle {{ now().strftime('%H:%M') }}, proseguo con la routine"
-    # SE È SCADUTO IL TIMEOUT → Ferma tutto
     default:
       - action: logbook.log
         data:
           name: "Sveglia Architetto"
-          message: "⏱️ Timeout raggiunto ({{ timeout_movimento }} min), routine annullata"
-      - stop: "Nessun movimento rilevato entro {{ timeout_movimento }} minuti"
+          message: "⏱️ Timeout raggiunto ({{ input_timeout }} min), routine annullata"
+      - stop: "Nessun movimento rilevato"
   
   # ===== FASE 5: ACCENSIONE LUCI =====
   - action: light.turn_on
@@ -287,7 +290,6 @@ action:
   - delay:
       minutes: !input ritardo_caffe
   
-  # Attiva caffè sempre
   - action: switch.turn_on
     target:
       entity_id: !input macchina_caffe
