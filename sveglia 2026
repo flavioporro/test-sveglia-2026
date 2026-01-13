@@ -168,13 +168,10 @@ condition:
         (trigger.id == 'domenica' and now().weekday() == 6)
       ) %}
 
-      {# Se non è il giorno corretto, non eseguire #}
       {% if not oggi_corretto %}
         false
-      {# Se non c'è traccia dell'ultima esecuzione, esegui #}
       {% elif ultima in ['unknown', 'unavailable', '', none] %}
         true
-      {# Altrimenti verifica che non sia già stata eseguita oggi (as_datetime più robusto) #}
       {% else %}
         {% set ultima_dt = as_datetime(ultima) %}
         {{ ultima_dt is none or ultima_dt.date() != now().date() }}
@@ -185,7 +182,8 @@ action:
   - action: logbook.log
     data:
       name: "Sveglia Architetto"
-      message: "🌅 Routine {{ trigger.id | title }} avviata alle {{ now().strftime('%H:%M') }}"
+      message: >-
+        🌅 Routine {{ trigger.id | title }} avviata alle {{ now().strftime('%H:%M') }}
 
   - action: input_datetime.set_datetime
     target:
@@ -205,7 +203,8 @@ action:
   - action: logbook.log
     data:
       name: "Sveglia Architetto"
-      message: "🪟 Serrande camere inviate al valore configurato"
+      message: >-
+        🪟 Serrande camere inviate al valore configurato ({{ (!input posizione_serrande_camere) | string }}%)
 
   # ===== FASE 3: APERTURA BAGNO =====
   - action: cover.open_cover
@@ -216,13 +215,15 @@ action:
   - action: logbook.log
     data:
       name: "Sveglia Architetto"
-      message: "🚿 Serranda bagno aperta completamente"
+      message: >-
+        🚿 Serranda bagno aperta completamente
 
   # ===== FASE 4: ATTESA MOVIMENTO CON TIMEOUT =====
   - action: logbook.log
     data:
       name: "Sveglia Architetto"
-      message: "👀 In attesa di movimento (timeout: {{ !input timeout_movimento }} min)..."
+      message: >-
+        👀 In attesa di movimento (timeout: {{ (!input timeout_movimento) | string }} min)...
 
   - wait_for_trigger:
       - platform: state
@@ -241,12 +242,14 @@ action:
           - action: logbook.log
             data:
               name: "Sveglia Architetto"
-              message: "✅ Movimento rilevato alle {{ now().strftime('%H:%M') }}, proseguo con la routine"
+              message: >-
+                ✅ Movimento rilevato alle {{ now().strftime('%H:%M') }}, proseguo con la routine
     default:
       - action: logbook.log
         data:
           name: "Sveglia Architetto"
-          message: "⏱️ Timeout raggiunto ({{ !input timeout_movimento }} min), routine annullata"
+          message: >-
+            ⏱️ Timeout raggiunto ({{ (!input timeout_movimento) | string }} min), routine annullata
       - stop
 
   # ===== FASE 5: ACCENSIONE LUCI =====
@@ -258,7 +261,8 @@ action:
   - action: logbook.log
     data:
       name: "Sveglia Architetto"
-      message: "💡 Luci accese"
+      message: >-
+        💡 Luci accese
 
   # ===== FASE 6: APERTURA TAPPARELLE PIANO TERRA =====
   - delay:
@@ -267,7 +271,8 @@ action:
   - action: logbook.log
     data:
       name: "Sveglia Architetto"
-      message: "🏠 Invio comando apertura tapparelle piano terra..."
+      message: >-
+        🏠 Invio comando apertura tapparelle piano terra...
 
   - action: cover.set_cover_position
     target:
@@ -279,7 +284,8 @@ action:
   - action: logbook.log
     data:
       name: "Sveglia Architetto"
-      message: "✅ Comando inviato alle tapparelle piano terra (100%)"
+      message: >-
+        ✅ Comando inviato alle tapparelle piano terra (100%)
 
   # ===== FASE 7: CAFFÈ E PORTA =====
   - delay:
@@ -294,7 +300,8 @@ action:
   - action: logbook.log
     data:
       name: "Sveglia Architetto"
-      message: "☕ Macchina del caffè attivata"
+      message: >-
+        ☕ Macchina del caffè attivata
 
   # Sblocca porta solo se persona in casa
   - choose:
@@ -310,18 +317,21 @@ action:
           - action: logbook.log
             data:
               name: "Sveglia Architetto"
-              message: "🚪 Porta sbloccata (persona in casa)"
+              message: >-
+                🚪 Porta sbloccata (persona in casa)
     default:
       - action: logbook.log
         data:
           name: "Sveglia Architetto"
-          message: "🚪 Porta non sbloccata (persona non in casa)"
+          message: >-
+            🚪 Porta non sbloccata (persona non in casa)
 
   # ===== FASE 8: COMPLETAMENTO =====
   - action: logbook.log
     data:
       name: "Sveglia Architetto"
-      message: "✨ Routine completata con successo"
+      message: >-
+        ✨ Routine completata con successo
 
 mode: single
 max_exceeded: silent
