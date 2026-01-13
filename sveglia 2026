@@ -162,7 +162,8 @@ trigger:
 condition:
   - condition: template
     value_template: >
-      {% set ultima = states(ultima_routine) %}
+      {% set entity_id = !input ultima_routine %}
+      {% set ultima = states(entity_id) %}
       {% set oggi_corretto = (
         (trigger.id == 'lunedi' and now().weekday() == 0) or
         (trigger.id == 'martedi' and now().weekday() == 1) or
